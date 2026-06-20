@@ -1,0 +1,19 @@
+# Runtime state
+state/
+*.state.json
+post-monitor-state.json
+
+# Local overrides
+.env
+*.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

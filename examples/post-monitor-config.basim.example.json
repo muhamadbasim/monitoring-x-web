@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "state_path": "~/.hermes/data/monitors/post-monitor-state.json",
+  "user_agent": "Mozilla/5.0 (compatible; Hermes-Post-Monitor/1.0; +https://hermes-agent.nousresearch.com)",
+  "timeout_seconds": 30,
+  "nitter_instances": [
+    "https://nitter.net"
+  ],
+  "direct_x_fallback": true,
+  "notification": {
+    "max_text_chars": 700,
+    "max_items_per_run": 20
+  },
+  "sources": [
+    {
+      "id": "x-basimseason",
+      "type": "x",
+      "enabled": true,
+      "name": "@basimseason",
+      "handle": "basimseason",
+      "min_interval_seconds": 600,
+      "nitter_instances": [
+        "https://nitter.net"
+      ],
+      "direct_x_fallback": true,
+      "include_replies": true,
+      "include_reposts": true
+    },
+    {
+      "id": "website-cerita-basim",
+      "type": "website",
+      "enabled": true,
+      "name": "Cerita Basim",
+      "url": "https://cerita.basim.id/",
+      "feed_urls": [
+        "https://cerita.basim.id/rss.xml",
+        "https://cerita.basim.id/rss-karya.xml"
+      ],
+      "min_interval_seconds": 300
+    }
+  ]
+}

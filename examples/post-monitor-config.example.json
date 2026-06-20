@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "state_path": "~/.hermes/data/monitors/post-monitor-state.json",
+  "user_agent": "Mozilla/5.0 (compatible; Hermes-Post-Monitor/1.0; +https://hermes-agent.nousresearch.com)",
+  "timeout_seconds": 30,
+  "nitter_instances": [
+    "https://nitter.net"
+  ],
+  "direct_x_fallback": true,
+  "notification": {
+    "max_text_chars": 700,
+    "max_items_per_run": 20
+  },
+  "sources": [
+    {
+      "id": "x-example-handle",
+      "type": "x",
+      "enabled": true,
+      "name": "@example_handle",
+      "handle": "example_handle",
+      "min_interval_seconds": 600,
+      "nitter_instances": [
+        "https://nitter.net"
+      ],
+      "direct_x_fallback": true,
+      "include_replies": true,
+      "include_reposts": true
+    },
+    {
+      "id": "website-example-autodiscovery",
+      "type": "website",
+      "enabled": true,
+      "name": "Example Blog",
+      "url": "https://example.com/",
+      "min_interval_seconds": 300
+    },
+    {
+      "id": "website-example-explicit-feeds",
+      "type": "website",
+      "enabled": true,
+      "name": "Example Blog With Feeds",
+      "url": "https://example.com/",
+      "feed_urls": [
+        "https://example.com/rss.xml",
+        "https://example.com/feed.xml"
+      ],
+      "min_interval_seconds": 300
+    },
+    {
+      "id": "rss-example-single-feed",
+      "type": "rss",
+      "enabled": true,
+      "name": "Example Single RSS Feed",
+      "url": "https://example.com/rss.xml",
+      "min_interval_seconds": 300
+    }
+  ]
+}
