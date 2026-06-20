@@ -100,7 +100,7 @@ examples/post-monitor-config.basim.example.json
 
 Isinya memonitor:
 
-- X: `@basimseason` setiap 10 menit.
+- X: `@basimseason` setiap 10 menit. Script juga menegakkan minimum 600 detik untuk semua source X walaupun config diisi lebih rendah.
 - Website: `https://cerita.basim.id/rss.xml` dan `https://cerita.basim.id/rss-karya.xml` setiap 5 menit.
 
 ## Tambah akun X

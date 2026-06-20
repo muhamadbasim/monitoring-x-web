@@ -72,7 +72,7 @@ POST_MONITOR_CONFIG=./post-monitor-config.json python3 scripts/post-monitor.py
 | `enabled` | no | `true`/`false`. |
 | `name` | no | Nama tampil di notifikasi. |
 | `handle` | yes | X handle tanpa `@`. |
-| `min_interval_seconds` | no | Interval minimum source ini. Disarankan 600 detik atau lebih. |
+| `min_interval_seconds` | no | Interval minimum source ini. Untuk `type: "x"`, script menegakkan minimum 600 detik walau config diisi lebih rendah. |
 | `nitter_instances` | no | Override mirror untuk source ini. |
 | `direct_x_fallback` | no | Override fallback HTML X langsung. |
 | `include_replies` | no | Saat parsing Nitter RSS, simpan reply juga. |

@@ -149,7 +149,7 @@ If unknown, provide only homepage URL and let the script auto-discover feed link
 
 1. **Changing source IDs resets dedupe.** The state key is `source.id`; changing it can re-notify old posts.
 2. **Committing real state.** State may contain seen post IDs and timestamps. Commit only `examples/post-monitor-state.example.json` unless explicitly desired.
-3. **Over-polling X mirrors.** Keep X interval around 10 minutes or more to avoid mirror blocks.
+3. **Over-polling X mirrors.** The script enforces a minimum 600-second interval for `type: "x"` sources; keep X polling around 10 minutes or more to avoid mirror blocks.
 4. **Relying on Nitter for production-critical alerts.** Nitter mirrors can go down; use official X API for strong guarantees.
 5. **Leaving old cron jobs active.** If migrating from dedicated scripts, pause/remove old jobs to prevent duplicate notifications.
 

@@ -42,6 +42,7 @@ DEFAULT_USER_AGENT = (
 )
 REQUEST_TIMEOUT_SECONDS = 30
 COMMON_FEED_PATHS = ("/rss.xml", "/feed.xml", "/atom.xml", "/feed", "/rss")
+X_MIN_INTERVAL_SECONDS = 600
 
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes")).expanduser()
 DEFAULT_CONFIG_PATH = HERMES_HOME / "data" / "monitors" / "post-monitor-config.json"
@@ -183,16 +184,28 @@ def source_id_for(source: dict[str, Any]) -> str:
     return "source-" + sha_id(json.dumps(source, sort_keys=True))[:12]
 
 
+def effective_min_interval_seconds(source: dict[str, Any]) -> int:
+    """Return the enforced polling interval for a source.
+
+    Public X scraping/RSS mirrors are intentionally rate-limited to at least
+    600 seconds per handle, even if a future config sets a lower value.
+    """
+    interval = source.get("min_interval_seconds")
+    interval_seconds = 0
+    if interval is not None:
+        try:
+            interval_seconds = int(interval)
+        except Exception:
+            interval_seconds = 0
+    if str(source.get("type", "")).lower() == "x":
+        return max(interval_seconds, X_MIN_INTERVAL_SECONDS)
+    return interval_seconds
+
+
 def should_check_source(source: dict[str, Any], source_state: dict[str, Any], *, force: bool) -> bool:
     if force:
         return True
-    interval = source.get("min_interval_seconds")
-    if interval is None:
-        return True
-    try:
-        interval_seconds = int(interval)
-    except Exception:
-        return True
+    interval_seconds = effective_min_interval_seconds(source)
     if interval_seconds <= 0:
         return True
 
