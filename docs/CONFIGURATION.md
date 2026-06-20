@@ -110,14 +110,39 @@ Dengan auto-discovery:
 }
 ```
 
+Dengan HTML listing/page links saat RSS tidak lengkap:
+
+```json
+{
+  "id": "website-html-listing",
+  "type": "website",
+  "enabled": true,
+  "name": "Example Blog",
+  "url": "https://example.com/",
+  "feed_urls": ["https://example.com/rss.xml"],
+  "html_urls": ["https://example.com/blog/"],
+  "html_link_include_patterns": ["/blog/"],
+  "html_category": "Example Blog",
+  "html_max_links": 20,
+  "html_fetch_item_pages": true,
+  "min_interval_seconds": 300
+}
+```
+
 | Field | Required | Keterangan |
 | --- | --- | --- |
 | `id` | yes | ID unik untuk state. |
 | `type` | yes | `website`. |
 | `enabled` | no | `true`/`false`. |
 | `name` | no | Nama tampil. |
-| `url` | yes jika tidak ada `feed_urls` | Homepage untuk auto-discovery. |
+| `url` | yes jika tidak ada `feed_urls`/`html_urls` | Homepage untuk auto-discovery. |
 | `feed_urls` | no | Array RSS/Atom URL explicit. |
+| `html_urls` | no | Halaman listing HTML yang berisi link post. Berguna saat RSS tidak memuat semua post. |
+| `html_link_include_patterns` | no | Regex/substr URL yang harus cocok, mis. `/cerita/d/`. |
+| `html_link_exclude_patterns` | no | Regex/substr URL yang harus dikecualikan. |
+| `html_category` | no | Kategori notifikasi untuk item dari HTML listing. |
+| `html_max_links` | no | Batas link dari tiap listing; default 25. |
+| `html_fetch_item_pages` | no | Jika `true`, script fetch halaman item untuk mengambil title/description/canonical. |
 | `min_interval_seconds` | no | Disarankan 300 detik atau lebih. |
 
 ## Source type: `rss`

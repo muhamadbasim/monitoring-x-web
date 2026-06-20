@@ -154,6 +154,25 @@ Kalau belum tahu feed URL, cukup isi homepage dan biarkan script auto-discover:
 }
 ```
 
+Kalau RSS tidak memuat semua artikel, tambahkan HTML listing:
+
+```json
+{
+  "id": "website-html-listing",
+  "type": "website",
+  "enabled": true,
+  "name": "Example Blog",
+  "url": "https://example.com/",
+  "feed_urls": ["https://example.com/rss.xml"],
+  "html_urls": ["https://example.com/blog/"],
+  "html_link_include_patterns": ["/blog/"],
+  "html_category": "Example Blog",
+  "html_max_links": 20,
+  "html_fetch_item_pages": true,
+  "min_interval_seconds": 300
+}
+```
+
 ## Cara kerja dedupe
 
 - State disimpan di JSON: default `~/.hermes/data/monitors/post-monitor-state.json`.

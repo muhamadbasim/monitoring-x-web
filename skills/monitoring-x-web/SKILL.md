@@ -145,6 +145,25 @@ Prefer explicit RSS/Atom feed URLs:
 
 If unknown, provide only homepage URL and let the script auto-discover feed links.
 
+If RSS is incomplete, add HTML listing URLs and URL filters:
+
+```json
+{
+  "id": "website-html-listing",
+  "type": "website",
+  "enabled": true,
+  "name": "Example Blog",
+  "url": "https://example.com/",
+  "feed_urls": ["https://example.com/rss.xml"],
+  "html_urls": ["https://example.com/blog/"],
+  "html_link_include_patterns": ["/blog/"],
+  "html_category": "Example Blog",
+  "html_max_links": 20,
+  "html_fetch_item_pages": true,
+  "min_interval_seconds": 300
+}
+```
+
 ## Common Pitfalls
 
 1. **Changing source IDs resets dedupe.** The state key is `source.id`; changing it can re-notify old posts.

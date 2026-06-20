@@ -35,6 +35,23 @@
       "min_interval_seconds": 300
     },
     {
+      "id": "website-example-html-listing",
+      "type": "website",
+      "enabled": true,
+      "name": "Example HTML Listing",
+      "url": "https://example.com/",
+      "html_urls": [
+        "https://example.com/blog/"
+      ],
+      "html_link_include_patterns": [
+        "/blog/"
+      ],
+      "html_category": "Example Blog",
+      "html_max_links": 20,
+      "html_fetch_item_pages": true,
+      "min_interval_seconds": 300
+    },
+    {
       "id": "website-example-explicit-feeds",
       "type": "website",
       "enabled": true,

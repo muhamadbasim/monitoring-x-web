@@ -374,6 +374,197 @@ def discover_feed_urls(homepage_url: str, *, user_agent: str) -> list[str]:
     return feeds
 
 
+def parse_html_tag_attrs(tag: str) -> dict[str, str]:
+    attrs: dict[str, str] = {}
+    pattern = re.compile(r"([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(['\"])(.*?)\2", re.I | re.S)
+    for match in pattern.finditer(tag):
+        attrs[match.group(1).lower()] = html.unescape(match.group(3).strip())
+    return attrs
+
+
+def first_html_meta(html_text: str, *names: str) -> str:
+    wanted = {name.lower() for name in names if name}
+    for tag_match in re.finditer(r"<meta\b[^>]*>", html_text, re.I | re.S):
+        attrs = parse_html_tag_attrs(tag_match.group(0))
+        key = (attrs.get("property") or attrs.get("name") or attrs.get("itemprop") or "").lower()
+        if key in wanted and attrs.get("content"):
+            return attrs["content"].strip()
+    return ""
+
+
+def first_html_link(html_text: str, rel_name: str) -> str:
+    rel_name = rel_name.lower()
+    for tag_match in re.finditer(r"<link\b[^>]*>", html_text, re.I | re.S):
+        attrs = parse_html_tag_attrs(tag_match.group(0))
+        rel_value = attrs.get("rel", "").lower()
+        if rel_name in rel_value.split() and attrs.get("href"):
+            return attrs["href"].strip()
+    return ""
+
+
+def html_title_text(html_text: str) -> str:
+    meta_title = first_html_meta(html_text, "og:title", "twitter:title")
+    if meta_title:
+        return clean_html(meta_title)
+    match = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.I | re.S)
+    if not match:
+        return ""
+    title = clean_html(match.group(1))
+    # Common site-title separators; keep the article title in notifications.
+    for separator in (" · ", " | ", " - "):
+        if separator in title:
+            return title.split(separator, 1)[0].strip()
+    return title
+
+
+def html_datetime_text(html_text: str) -> str:
+    raw = first_html_meta(
+        html_text,
+        "article:published_time",
+        "datePublished",
+        "datepublished",
+        "publishdate",
+        "pubdate",
+    )
+    if not raw:
+        match = re.search(r"<time\b[^>]*\bdatetime\s*=\s*(['\"])(.*?)\1", html_text, re.I | re.S)
+        if match:
+            raw = html.unescape(match.group(2).strip())
+    if not raw:
+        # Best-effort JSON-LD support without pulling dependencies.
+        match = re.search(r'"datePublished"\s*:\s*"([^"]+)"', html_text, re.I)
+        if match:
+            raw = html.unescape(match.group(1).strip())
+    return parse_feed_datetime(raw) if raw else ""
+
+
+def html_url_matches(url: str, patterns: Iterable[str]) -> bool:
+    pattern_list = [str(pattern) for pattern in patterns or [] if str(pattern)]
+    if not pattern_list:
+        return True
+    for pattern in pattern_list:
+        try:
+            if re.search(pattern, url):
+                return True
+        except re.error:
+            if pattern in url:
+                return True
+    return False
+
+
+def normalize_html_item_url(url: str) -> str:
+    parsed = urllib.parse.urlsplit(url)
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/") or "/", parsed.query, ""))
+
+
+def parse_html_page_item(
+    *,
+    source_id: str,
+    source_name: str,
+    page_url: str,
+    page_html: str,
+    fetch_source: str,
+    fallback_title: str = "",
+    category: str = "",
+) -> MonitorItem:
+    canonical = first_html_link(page_html, "canonical")
+    final_url = urllib.parse.urljoin(page_url, canonical) if canonical else page_url
+    final_url = normalize_html_item_url(final_url)
+    title = html_title_text(page_html) or fallback_title
+    summary = first_html_meta(page_html, "description", "og:description", "twitter:description")
+    return MonitorItem(
+        source_id=source_id,
+        source_type="website",
+        source_name=source_name,
+        item_id=final_url,
+        title=title,
+        text=summary or title,
+        url=final_url,
+        category=category,
+        published_at=html_datetime_text(page_html),
+        fetch_source=fetch_source,
+    )
+
+
+def parse_html_listing_items(
+    source: dict[str, Any],
+    *,
+    config: dict[str, Any],
+    source_id: str,
+    source_name: str,
+    listing_url: str,
+    html_bytes: bytes,
+) -> tuple[list[MonitorItem], list[str]]:
+    html_text = html_bytes.decode("utf-8", "replace")
+    user_agent = str(source.get("user_agent") or config.get("user_agent") or DEFAULT_USER_AGENT)
+    timeout = int(source.get("timeout_seconds") or config.get("timeout_seconds") or REQUEST_TIMEOUT_SECONDS)
+    include_patterns = source.get("html_link_include_patterns") or []
+    exclude_patterns = source.get("html_link_exclude_patterns") or []
+    same_domain_only = bool(source.get("html_same_domain_only", True))
+    fetch_item_pages = bool(source.get("html_fetch_item_pages", True))
+    max_links = int(source.get("html_max_links") or 25)
+    category = str(source.get("html_category") or source.get("category") or source_name)
+    base_netloc = urllib.parse.urlparse(listing_url).netloc
+
+    candidates: list[tuple[str, str]] = []
+    seen_urls: set[str] = set()
+    anchor_pattern = re.compile(r"<a\b[^>]*\bhref\s*=\s*(['\"])(.*?)\1[^>]*>(.*?)</a>", re.I | re.S)
+    for match in anchor_pattern.finditer(html_text):
+        raw_href = html.unescape(match.group(2).strip())
+        if not raw_href or raw_href.startswith(("#", "mailto:", "tel:", "javascript:")):
+            continue
+        item_url = normalize_html_item_url(urllib.parse.urljoin(listing_url, raw_href))
+        parsed = urllib.parse.urlparse(item_url)
+        if same_domain_only and parsed.netloc != base_netloc:
+            continue
+        if not html_url_matches(item_url, include_patterns):
+            continue
+        if exclude_patterns and html_url_matches(item_url, exclude_patterns):
+            continue
+        if item_url in seen_urls:
+            continue
+        seen_urls.add(item_url)
+        anchor_text = clean_html(match.group(3), max_chars=300)
+        candidates.append((item_url, anchor_text))
+        if len(candidates) >= max_links:
+            break
+
+    items: list[MonitorItem] = []
+    errors: list[str] = []
+    for item_url, anchor_text in candidates:
+        if fetch_item_pages:
+            try:
+                page_bytes = fetch_url(item_url, user_agent=user_agent, accept="text/html,application/xhtml+xml,*/*", timeout=timeout)
+                items.append(
+                    parse_html_page_item(
+                        source_id=source_id,
+                        source_name=source_name,
+                        page_url=item_url,
+                        page_html=page_bytes.decode("utf-8", "replace"),
+                        fetch_source=listing_url,
+                        fallback_title=anchor_text,
+                        category=category,
+                    )
+                )
+                continue
+            except Exception as exc:
+                errors.append(f"{item_url}: {exc}")
+        items.append(
+            MonitorItem(
+                source_id=source_id,
+                source_type="website",
+                source_name=source_name,
+                item_id=item_url,
+                title=anchor_text,
+                text=anchor_text,
+                url=item_url,
+                category=category,
+                fetch_source=listing_url,
+            )
+        )
+    return items, errors
+
+
 def x_status_url(handle: str, tweet_id: str) -> str:
     return f"https://x.com/{handle}/status/{tweet_id}"
 
@@ -532,7 +723,34 @@ def fetch_website_source(source: dict[str, Any], *, config: dict[str, Any], sour
         except Exception as exc:
             errors.append(f"{feed_url}: {exc}")
 
-    return items, errors
+    html_urls = [str(url) for url in source.get("html_urls") or [] if str(url)]
+    for html_url in html_urls:
+        try:
+            html_bytes = fetch_url(html_url, user_agent=user_agent, accept="text/html,application/xhtml+xml,*/*", timeout=timeout)
+            html_items, html_errors = parse_html_listing_items(
+                source,
+                config=config,
+                source_id=source_id,
+                source_name=source_name,
+                listing_url=html_url,
+                html_bytes=html_bytes,
+            )
+            items.extend(html_items)
+            errors.extend(html_errors[-5:])
+        except Exception as exc:
+            errors.append(f"{html_url}: {exc}")
+
+    # De-duplicate RSS + HTML results by stable item_id while preserving order.
+    unique_items: list[MonitorItem] = []
+    seen_item_ids: set[str] = set()
+    for item in items:
+        key = item.item_id or item.url
+        if not key or key in seen_item_ids:
+            continue
+        unique_items.append(item)
+        seen_item_ids.add(key)
+
+    return unique_items, errors
 
 
 def fetch_source(source: dict[str, Any], *, config: dict[str, Any], source_id: str) -> tuple[list[MonitorItem], list[str]]:

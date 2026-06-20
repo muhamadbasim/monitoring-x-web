@@ -36,6 +36,16 @@
         "https://cerita.basim.id/rss.xml",
         "https://cerita.basim.id/rss-karya.xml"
       ],
+      "html_urls": [
+        "https://cerita.basim.id/",
+        "https://cerita.basim.id/cerita"
+      ],
+      "html_link_include_patterns": [
+        "/cerita/d/"
+      ],
+      "html_category": "Cerita Basim — Cerita",
+      "html_max_links": 20,
+      "html_fetch_item_pages": true,
       "min_interval_seconds": 300
     }
   ]
