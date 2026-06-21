@@ -46,6 +46,7 @@
       "html_category": "Cerita Basim — Cerita",
       "html_max_links": 20,
       "html_fetch_item_pages": true,
+      "html_item_timeout_seconds": 10,
       "min_interval_seconds": 300
     }
   ]

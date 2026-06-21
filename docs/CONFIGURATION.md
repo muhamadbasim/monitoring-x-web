@@ -125,6 +125,7 @@ Dengan HTML listing/page links saat RSS tidak lengkap:
   "html_category": "Example Blog",
   "html_max_links": 20,
   "html_fetch_item_pages": true,
+  "html_item_timeout_seconds": 10,
   "min_interval_seconds": 300
 }
 ```
@@ -142,7 +143,8 @@ Dengan HTML listing/page links saat RSS tidak lengkap:
 | `html_link_exclude_patterns` | no | Regex/substr URL yang harus dikecualikan. |
 | `html_category` | no | Kategori notifikasi untuk item dari HTML listing. |
 | `html_max_links` | no | Batas link dari tiap listing; default 25. |
-| `html_fetch_item_pages` | no | Jika `true`, script fetch halaman item untuk mengambil title/description/canonical. |
+| `html_fetch_item_pages` | no | Jika `true`, script fetch halaman item untuk mengambil title/description/canonical. URL yang sudah ada di `seen_ids` tidak di-fetch ulang agar cron tetap cepat. |
+| `html_item_timeout_seconds` | no | Timeout khusus fetch halaman item HTML; gunakan 8-15 detik agar satu halaman lambat tidak membuat cron timeout. |
 | `min_interval_seconds` | no | Disarankan 300 detik atau lebih. |
 
 ## Source type: `rss`

@@ -160,6 +160,7 @@ If RSS is incomplete, add HTML listing URLs and URL filters:
   "html_category": "Example Blog",
   "html_max_links": 20,
   "html_fetch_item_pages": true,
+  "html_item_timeout_seconds": 10,
   "min_interval_seconds": 300
 }
 ```

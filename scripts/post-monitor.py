@@ -494,10 +494,11 @@ def parse_html_listing_items(
     source_name: str,
     listing_url: str,
     html_bytes: bytes,
+    known_seen_ids: set[str] | None = None,
 ) -> tuple[list[MonitorItem], list[str]]:
     html_text = html_bytes.decode("utf-8", "replace")
     user_agent = str(source.get("user_agent") or config.get("user_agent") or DEFAULT_USER_AGENT)
-    timeout = int(source.get("timeout_seconds") or config.get("timeout_seconds") or REQUEST_TIMEOUT_SECONDS)
+    timeout = int(source.get("html_item_timeout_seconds") or source.get("timeout_seconds") or config.get("timeout_seconds") or REQUEST_TIMEOUT_SECONDS)
     include_patterns = source.get("html_link_include_patterns") or []
     exclude_patterns = source.get("html_link_exclude_patterns") or []
     same_domain_only = bool(source.get("html_same_domain_only", True))
@@ -505,6 +506,7 @@ def parse_html_listing_items(
     max_links = int(source.get("html_max_links") or 25)
     category = str(source.get("html_category") or source.get("category") or source_name)
     base_netloc = urllib.parse.urlparse(listing_url).netloc
+    known_seen_ids = known_seen_ids or set()
 
     candidates: list[tuple[str, str]] = []
     seen_urls: set[str] = set()
@@ -532,6 +534,25 @@ def parse_html_listing_items(
     items: list[MonitorItem] = []
     errors: list[str] = []
     for item_url, anchor_text in candidates:
+        # Speed guard for cron: old listing URLs are already deduped by URL, so
+        # do not re-fetch every historical post page on every tick. Fetching
+        # item pages is only necessary for unseen candidates, where we want rich
+        # title/description/canonical metadata in the notification.
+        if item_url in known_seen_ids:
+            items.append(
+                MonitorItem(
+                    source_id=source_id,
+                    source_type="website",
+                    source_name=source_name,
+                    item_id=item_url,
+                    title=anchor_text,
+                    text=anchor_text,
+                    url=item_url,
+                    category=category,
+                    fetch_source=listing_url,
+                )
+            )
+            continue
         if fetch_item_pages:
             try:
                 page_bytes = fetch_url(item_url, user_agent=user_agent, accept="text/html,application/xhtml+xml,*/*", timeout=timeout)
@@ -679,7 +700,13 @@ def fetch_x_source(source: dict[str, Any], *, config: dict[str, Any], source_id:
     return [], errors
 
 
-def fetch_website_source(source: dict[str, Any], *, config: dict[str, Any], source_id: str) -> tuple[list[MonitorItem], list[str]]:
+def fetch_website_source(
+    source: dict[str, Any],
+    *,
+    config: dict[str, Any],
+    source_id: str,
+    known_seen_ids: set[str] | None = None,
+) -> tuple[list[MonitorItem], list[str]]:
     source_type = str(source.get("type") or "website")
     source_name = str(source.get("name") or source.get("url") or source.get("feed_url") or source_id)
     user_agent = str(source.get("user_agent") or config.get("user_agent") or DEFAULT_USER_AGENT)
@@ -724,6 +751,7 @@ def fetch_website_source(source: dict[str, Any], *, config: dict[str, Any], sour
             errors.append(f"{feed_url}: {exc}")
 
     html_urls = [str(url) for url in source.get("html_urls") or [] if str(url)]
+    html_known_seen_ids = set(known_seen_ids or set())
     for html_url in html_urls:
         try:
             html_bytes = fetch_url(html_url, user_agent=user_agent, accept="text/html,application/xhtml+xml,*/*", timeout=timeout)
@@ -734,8 +762,10 @@ def fetch_website_source(source: dict[str, Any], *, config: dict[str, Any], sour
                 source_name=source_name,
                 listing_url=html_url,
                 html_bytes=html_bytes,
+                known_seen_ids=html_known_seen_ids,
             )
             items.extend(html_items)
+            html_known_seen_ids.update(item.item_id for item in html_items if item.item_id)
             errors.extend(html_errors[-5:])
         except Exception as exc:
             errors.append(f"{html_url}: {exc}")
@@ -753,12 +783,18 @@ def fetch_website_source(source: dict[str, Any], *, config: dict[str, Any], sour
     return unique_items, errors
 
 
-def fetch_source(source: dict[str, Any], *, config: dict[str, Any], source_id: str) -> tuple[list[MonitorItem], list[str]]:
+def fetch_source(
+    source: dict[str, Any],
+    *,
+    config: dict[str, Any],
+    source_id: str,
+    known_seen_ids: set[str] | None = None,
+) -> tuple[list[MonitorItem], list[str]]:
     source_type = str(source.get("type") or "").lower()
     if source_type == "x":
         return fetch_x_source(source, config=config, source_id=source_id)
     if source_type in {"website", "rss"}:
-        return fetch_website_source(source, config=config, source_id=source_id)
+        return fetch_website_source(source, config=config, source_id=source_id, known_seen_ids=known_seen_ids)
     return [], [f"unsupported source type {source_type!r}"]
 
 
@@ -850,11 +886,11 @@ def run(config_path: Path, state_path: Path, *, force: bool = False, dry_run: bo
         due_count += 1
         source_state["last_checked_at"] = utc_now_iso()
         try:
-            items, errors = fetch_source(source, config=config, source_id=source_id)
+            seen_ids = set(str(x) for x in source_state.get("seen_ids", []) if x)
+            items, errors = fetch_source(source, config=config, source_id=source_id, known_seen_ids=seen_ids)
             if not items:
                 raise RuntimeError("no items returned" + (": " + " | ".join(errors) if errors else ""))
 
-            seen_ids = set(str(x) for x in source_state.get("seen_ids", []) if x)
             current_ids = {item.item_id for item in items if item.item_id}
             source_new_items = [item for item in items if item.item_id and item.item_id not in seen_ids]
 
